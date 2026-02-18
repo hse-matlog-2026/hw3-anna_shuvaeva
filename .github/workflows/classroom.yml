@@ -1,0 +1,110 @@
+name: Autograding Tests
+'on':
+- push
+- repository_dispatch
+permissions:
+  checks: write
+  actions: read
+  contents: read
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: test1
+      id: test1
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test1
+        setup-command: ''
+        command: python test_chapter03_01.py
+        timeout: 1
+        max-score: 1
+    - name: test2
+      id: test2
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test2
+        setup-command: ''
+        command: python test_chapter03_02.py
+        timeout: 1
+        max-score: 1
+    - name: test3
+      id: test3
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test3
+        setup-command: ''
+        command: python test_chapter03_03.py
+        timeout: 1
+        max-score: 1
+    - name: test4
+      id: test4
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test4
+        setup-command: ''
+        command: python test_chapter03_04.py
+        timeout: 1
+        max-score: 1
+    - name: test5
+      id: test5
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test5
+        setup-command: ''
+        command: python test_chapter03_05.py
+        timeout: 1
+        max-score: 1
+    - name: test6a
+      id: test6a
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test6a
+        setup-command: ''
+        command: python test_chapter03_06a.py
+        timeout: 1
+        max-score: 1
+    - name: test6b
+      id: test6b
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test6b
+        setup-command: ''
+        command: python test_chapter03_06b.py
+        timeout: 1
+        max-score: 1
+    - name: test6c
+      id: test6c
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test6c
+        setup-command: ''
+        command: python test_chapter03_06c.py
+        timeout: 1
+        max-score: 1
+    - name: test6d
+      id: test6d
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: test6d
+        setup-command: ''
+        command: python test_chapter03_06d.py
+        timeout: 1
+        max-score: 1
+    - name: Autograding Reporter
+      uses: classroom-resources/autograding-grading-reporter@v1
+      env:
+        TEST1_RESULTS: "${{steps.test1.outputs.result}}"
+        TEST2_RESULTS: "${{steps.test2.outputs.result}}"
+        TEST3_RESULTS: "${{steps.test3.outputs.result}}"
+        TEST4_RESULTS: "${{steps.test4.outputs.result}}"
+        TEST5_RESULTS: "${{steps.test5.outputs.result}}"
+        TEST6A_RESULTS: "${{steps.test6a.outputs.result}}"
+        TEST6B_RESULTS: "${{steps.test6b.outputs.result}}"
+        TEST6C_RESULTS: "${{steps.test6c.outputs.result}}"
+        TEST6D_RESULTS: "${{steps.test6d.outputs.result}}"
+      with:
+        runners: test1,test2,test3,test4,test5,test6a,test6b,test6c,test6d
