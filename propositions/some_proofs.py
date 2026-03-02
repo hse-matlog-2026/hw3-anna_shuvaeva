@@ -10,7 +10,7 @@ from propositions.syntax import *
 from propositions.proofs import *
 from propositions.axiomatic_systems import *
 from propositions.deduction import *
-
+from propositions.axiomatic_systems import MP, I1, D
 # Some inference rules that only use conjunction.
 
 #: Conjunction introduction inference rule
@@ -29,7 +29,31 @@ def prove_and_commutativity() -> Proof:
         A valid proof of ``'(q&p)'`` from the single assumption ``'(p&q)'`` via
         the inference rules `A_RULE`, `AE1_RULE`, and `AE2_RULE`.
     """
-    # Task 4.7
+    statement = InferenceRule(
+        [Formula.parse('(p&q)')], 
+        Formula.parse('(q&p)')
+    )
+    rules = {A_RULE, AE1_RULE, AE2_RULE}
+    lines = [
+        Proof.Line(Formula.parse('(p&q)'), None, None),
+        Proof.Line(
+            Formula.parse('p'), 
+            AE2_RULE, 
+            [0]
+        ),
+        Proof.Line(
+            Formula.parse('q'),
+            AE1_RULE,
+            [0]
+        ),
+        Proof.Line(
+            Formula.parse('(q&p)'),
+            A_RULE,
+            [2, 1]  
+        )
+    ]
+    
+    return Proof(statement, rules, lines)
 
 def prove_I0() -> Proof:
     """Proves `~propositions.axiomatic_systems.I0` via
@@ -42,9 +66,37 @@ def prove_I0() -> Proof:
         `~propositions.axiomatic_systems.I1`, and
         `~propositions.axiomatic_systems.D`.
     """
-    # Task 4.8
+    statement = I0  
+    rules = {MP, I1, D}
+    p = Formula.parse('p')
+    line0 = Proof.Line(
+        Formula.parse('(p->((p->p)->p))'),
+        I1,  
+        []   
+    )
+    line1 = Proof.Line(
+        Formula.parse('((p->((p->p)->p))->((p->(p->p))->(p->p)))'),
+        D,   
+        []
+    )
+    line2 = Proof.Line(
+        Formula.parse('((p->(p->p))->(p->p))'),
+        MP,
+        [0, 1] 
+    )
+    line3 = Proof.Line(
+        Formula.parse('(p->(p->p))'),
+        I1,
+        []
+    )
+    line4 = Proof.Line(
+        Formula.parse('(p->p)'),
+        MP,
+        [3, 2] 
+    )
+    lines = [line0, line1, line2, line3, line4]
+    return Proof(statement, rules, lines)
 
-#: Hypothetical syllogism
 HS = InferenceRule([Formula.parse('(p->q)'), Formula.parse('(q->r)')],
                    Formula.parse('(p->r)'))
 

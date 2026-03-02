@@ -324,36 +324,15 @@ def synthesize_cnf(variables: Sequence[str], values: Iterable[bool]) -> Formula:
     return formula
 
 def evaluate_inference(rule: InferenceRule, model: Model) -> bool:
-    """Checks if the given inference rule holds in the given model.
+    for assumption in rule.assumptions:
+        if not evaluate(assumption, model):
+            return True 
+    return evaluate(rule.conclusion, model)
 
-    Parameters:
-        rule: inference rule to check.
-        model: model to check in.
-
-    Returns:
-        ``True`` if the given inference rule holds in the given model, ``False``
-        otherwise.
-
-    Examples:
-        >>> evaluate_inference(InferenceRule([Formula('p')], Formula('q')),
-        ...                    {'p': True, 'q': False})
-        False
-
-        >>> evaluate_inference(InferenceRule([Formula('p')], Formula('q')),
-        ...                    {'p': False, 'q': False})
-        True
-    """
-    assert is_model(model)
-    # Task 4.2
 
 def is_sound_inference(rule: InferenceRule) -> bool:
-    """Checks if the given inference rule is sound, i.e., whether its
-    conclusion is a semantically correct implication of its assumptions.
-
-    Parameters:
-        rule: inference rule to check.
-
-    Returns:
-        ``True`` if the given inference rule is sound, ``False`` otherwise.
-    """
-    # Task 4.3
+    variables = list(rule.variables())
+    for model in all_models(variables):
+        if not evaluate_inference(rule, model):
+            return False
+    return True

@@ -82,13 +82,11 @@ class InferenceRule:
         return hash(str(self))
         
     def variables(self) -> Set[str]:
-        """Finds all variable names in the current inference rule.
-
-        Returns:
-            A set of all variable names used in the assumptions and in the
-            conclusion of the current inference rule.
-        """
-        # Task 4.1
+        result = set()
+        for assumption in self.assumptions:
+            result.update(assumption.variables())
+        result.update(self.conclusion.variables())
+        return result
 
     def specialize(self, specialization_map: SpecializationMap) -> \
             InferenceRule:
@@ -106,62 +104,126 @@ class InferenceRule:
         for variable in specialization_map:
             assert is_variable(variable)
         # Task 4.4
+        specialized_assumptions = []
+        for assumption in self.assumptions:
+            specialized_assumptions.append(
+                assumption.substitute_variables(specialization_map)
+            )
+        
+        specialized_conclusion = self.conclusion.substitute_variables(
+            specialization_map
+        )
+        
+        return InferenceRule(specialized_assumptions, specialized_conclusion)
+
 
     @staticmethod
     def _merge_specialization_maps(
             specialization_map1: Union[SpecializationMap, None],
             specialization_map2: Union[SpecializationMap, None]) -> \
             Union[SpecializationMap, None]:
-        """Merges the given specialization maps while checking their
-        consistency.
+        """Merges the given specialization maps.
 
         Parameters:
-            specialization_map1: first mapping to merge, or ``None``.
-            specialization_map2: second mapping to merge, or ``None``.
+            specialization_map1: first map to merge, or ``None``.
+            specialization_map2: second map to merge, or ``None``.
 
         Returns:
-            A single mapping containing all (key, value) pairs that appear in
+            A single map containing all (variable, formula) pairs that appear in
             either of the given maps, or ``None`` if one of the given maps is
-            ``None`` or if some key appears in both given maps but with
-            different values.
+            ``None`` or if a variable appears in both given maps but is mapped
+            to different formulas.
         """
-        if specialization_map1 is not None:
-            for variable in specialization_map1:
-                assert is_variable(variable)
-        if specialization_map2 is not None:
-            for variable in specialization_map2:
-                assert is_variable(variable)
         # Task 4.5a
+        if specialization_map1 is None or specialization_map2 is None:
+            return None
+        
+        result = dict(specialization_map1)
+        
+        for var, formula in specialization_map2.items():
+            if var in result:
+                if result[var] != formula:
+                    return None
+            else:
+                result[var] = formula
+        
+        return result
         
     @staticmethod
-    def _formula_specialization_map(general: Formula, specialization: Formula) \
-            -> Union[SpecializationMap, None]:
-        """Computes the minimal specialization map by which the given formula
-        specializes to the given specialization.
+    def _formula_specialization_map(general: Formula,
+                                    special: Formula) -> \
+            Union[SpecializationMap, None]:
+        """Computes the minimal specialization map by which the given general
+        formula becomes the given special formula.
 
         Parameters:
-            general: non-specialized formula for which to compute the map.
-            specialization: specialization for which to compute the map.
+            general: general formula.
+            special: special formula.
 
         Returns:
-            The computed specialization map, or ``None`` if `specialization` is
-            in fact not a specialization of `general`.
+            The computed specialization map, or ``None`` if `special` is in fact
+            not a specialization of `general`.
         """
-        # Task 4.5b
+        if is_variable(general.root):
+            return {general.root: special}
+        
+        if general.root != special.root:
+            return None
+        
+        if is_constant(general.root):
+            if general.root == special.root:
+                return {}
+            else:
+                return None
+    
+        if is_unary(general.root):
+            return InferenceRule._formula_specialization_map(
+                general.first, special.first
+            )
+        left_map = InferenceRule._formula_specialization_map(
+            general.first, special.first
+        )
+        if left_map is None:
+            return None
+        
+        right_map = InferenceRule._formula_specialization_map(
+            general.second, special.second
+        )
+        if right_map is None:
+            return None
+        
+        return InferenceRule._merge_specialization_maps(left_map, right_map)
+
 
     def specialization_map(self, specialization: InferenceRule) -> \
             Union[SpecializationMap, None]:
-        """Computes the minimal specialization map by which the current
-        inference rule specializes to the given specialization.
-
-        Parameters:
-            specialization: specialization for which to compute the map.
-
-        Returns:
-            The computed specialization map, or ``None`` if `specialization` is
-            in fact not a specialization of the current rule.
-        """
-        # Task 4.5c
+        if len(self.assumptions) != len(specialization.assumptions):
+            return None
+        
+        total_map = {}
+        
+        for gen_assump, spec_assump in zip(self.assumptions, specialization.assumptions):
+            assump_map = InferenceRule._formula_specialization_map(
+                gen_assump, spec_assump
+            )
+            if assump_map is None:
+                return None
+            
+            total_map = InferenceRule._merge_specialization_maps(
+                total_map, assump_map
+            )
+            if total_map is None:
+                return None
+        
+        conclusion_map = InferenceRule._formula_specialization_map(
+            self.conclusion, specialization.conclusion
+        )
+        if conclusion_map is None:
+            return None
+    
+        return InferenceRule._merge_specialization_maps(
+            total_map, conclusion_map
+        )
 
     def is_specialization_of(self, general: InferenceRule) -> bool:
         """Checks if the current inference rule is a specialization of the given
@@ -300,56 +362,66 @@ class Proof:
         return r
 
     def rule_for_line(self, line_number: int) -> Union[InferenceRule, None]:
-        """Computes the inference rule whose conclusion is the formula justified
-        by the specified line, and whose assumptions are the formulas justified
-        by the lines specified as the assumptions of that line.
-
-        Parameters:
-            line_number: number of the line according to which to compute the
-                inference rule.
-
-        Returns:
-            The computed inference rule, with assumptions ordered in the order
-            of their numbers in the specified line, or ``None`` if the specified
-            line is justified as an assumption.
-        """
-        assert line_number < len(self.lines)
-        # Task 4.6a
+    
+        line = self.lines[line_number]
+        if line.rule is None:
+            return None
+        
+        assumption_formulas = []
+        for assumption_line_num in line.assumptions:
+            assumption_formulas.append(self.lines[assumption_line_num].formula)
+        
+        return InferenceRule(assumption_formulas, line.formula)
 
     def is_line_valid(self, line_number: int) -> bool:
-        """Checks if the specified line validly follows from its justifications.
 
-        Parameters:
-            line_number: number of the line to check.
-
-        Returns:
-            If the specified line is justified as an assumption, then ``True``
-            if the formula justified by this line is an assumption of the
-            current proof, ``False`` otherwise. Otherwise (i.e., if the
-            specified line is justified as a conclusion of an inference rule),
-            ``True`` if the rule specified for that line is one of the allowed
-            inference rules in the current proof, and it has a specialization
-            that satisfies all of the following:
-
-            1. The conclusion of that specialization is the formula justified by
-               that line.
-            2. The assumptions of this specialization are the formulas justified
-               by the lines that are specified as the assumptions of that line
-               (in the order of their numbers in that line), all of which must
-               be previous lines.
-        """
-        assert line_number < len(self.lines)
-        # Task 4.6b
+        line = self.lines[line_number]
+        if line.rule is None:
+            return line.formula in self.statement.assumptions
+        for assumption_line in line.assumptions:
+            if assumption_line >= line_number:
+                return False
+        inferred_rule = self.rule_for_line(line_number)
+        if inferred_rule is None:
+            return False
+        
+        if not inferred_rule.is_specialization_of(line.rule):
+            return False
+    
+        rule_allowed = False
+        for allowed_rule in self.rules:
+            if line.rule == allowed_rule or line.rule.is_specialization_of(allowed_rule):
+                rule_allowed = True
+                break
+        
+        return rule_allowed
         
     def is_valid(self) -> bool:
-        """Checks if the current proof is a valid proof of its claimed statement
-        via its inference rules.
-
-        Returns:
-            ``True`` if the current proof is a valid proof of its claimed
-            statement via its inference rules, ``False`` otherwise.
-        """
-        # Task 4.6c
+        if len(self.lines) == 0:
+            return False
+        if self.lines[-1].formula != self.statement.conclusion:
+            return False
+    
+        valid_lines = [False] * len(self.lines)
+        
+        for i in range(len(self.lines)):
+            line = self.lines[i]
+            
+            if line.rule is None:
+                valid_lines[i] = (line.formula in self.statement.assumptions)
+            else:
+                for assumption in line.assumptions:
+                    if assumption >= i:
+                        return False
+                    if not valid_lines[assumption]: 
+                        return False
+            
+                if not self.is_line_valid(i):
+                    return False
+                
+                valid_lines[i] = True
+        
+        return all(valid_lines)
 
 def prove_specialization(proof: Proof, specialization: InferenceRule) -> Proof:
     """Converts the given proof of an inference rule to a proof of the given

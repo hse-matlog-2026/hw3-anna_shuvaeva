@@ -29,7 +29,20 @@ def rule_nonsoundness_from_specialization_nonsoundness(
     """
     assert specialization.is_specialization_of(general)
     assert not evaluate_inference(specialization, model)
-    # Task 4.9
+    substitution = general.specialization_map(specialization)
+    general_model = {}
+    
+    for var in general.variables():
+        if var in substitution:
+           
+            formula = substitution[var]
+            value = evaluate(formula, model)
+            general_model[var] = value
+        else:
+          
+            general_model[var] = False
+    
+    return general_model
 
 def nonsound_rule_of_nonsound_proof(proof: Proof, model: Model) -> \
         Tuple[InferenceRule, Model]:
@@ -48,4 +61,18 @@ def nonsound_rule_of_nonsound_proof(proof: Proof, model: Model) -> \
     """
     assert proof.is_valid()
     assert not evaluate_inference(proof.statement, model)
-    # Task 4.10
+
+    for i in range(len(proof.lines)):
+        line = proof.lines[i]
+        if line.rule is None:
+            continue
+        inferred_rule = proof.rule_for_line(i)
+        if not evaluate_inference(inferred_rule, model):
+            for general_rule in proof.rules:
+                if inferred_rule.is_specialization_of(general_rule):
+                    general_model = rule_nonsoundness_from_specialization_nonsoundness(
+                        general_rule, inferred_rule, model
+                    )
+                    return (general_rule, general_model)
+    
+    raise ValueError("Could not find non-sound rule in proof")
